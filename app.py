@@ -3,17 +3,30 @@ from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy import ForeignKey
 from flask_marshmallow import Marshmallow
 from flask_cors import CORS
+from flask_session import Session;
 import os
+import secret_key as SecretKey
 
 
 app = Flask(__name__)
 
 basedir = os.path.abspath(os.path.dirname(__file__))
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///' + os.path.join(basedir, 'app.sqlite')
+# Configure session to use filesystem (you can change the directory path if needed)
+app.config['SESSION_TYPE'] = 'filesystem'
+app.config['SECRET_KEY'] = SecretKey  # Replace with a strong secret key
+app.config['SESSION_PERMANENT'] = False  # Session expires when the browser is closed
+app.config['SESSION_FILE_DIR'] = './flask_session/'  # Store session files in this directory
+app.config['SESSION_FILE_THRESHOLD'] = 100  # Maximum number of session files before cleanup
+
+# Initialize session management
+Session(app)
 
 CORS(app, resources={r"/*": {"origins": "https://garazils.github.io"}}, supports_credentials=True)
 db = SQLAlchemy(app)
 ma = Marshmallow(app)
+
+
 
 
 # User table
@@ -128,15 +141,21 @@ def user_login():
         user = User.query.filter_by(user_name=user_name).first()
 
         if user and user.user_password == user_password:
+            Session['user'] = user_name  # Store username in session
             response = jsonify({'message': 'Login successful'})
             response.headers.add('Access-Control-Allow-Origin', 'https://garazils.github.io')
             response.headers.add('Access-Control-Allow-Credentials', 'true')
+            
             return response, 200
         else:
             response = jsonify({"Warning": "Wrong username or password"})
             response.headers.add('Access-Control-Allow-Origin', 'https://garazils.github.io')
             response.headers.add('Access-Control-Allow-Credentials', 'true')
             return response, 401
+        
+@app.route("/logout", methods=["DELETE", "OPTIONS"])
+def LogOut():
+    Session.pop('user', None)  # Remove user from session
     
 ## TODO: Refactor this preflight thing, if possible.
 
